@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Plug-in Priors for Inverse Problem Solving</title>
+    <title>Plug-in Methods for Inverse Problem Solving</title>
     <meta
       name="description"
-      content="A project page introducing plug-in inverse problem solving with pretrained diffusion and foundation flow-matching models."
+      content="A simple project page unifying plug-in methods for inverse problem solving."
     >
     <link rel="stylesheet" href="styles.css">
     <script>
@@ -22,13 +22,14 @@
   <body>
     <header class="site-header">
       <nav class="nav" aria-label="Primary">
-        <a class="brand" href="#top">Plug-in Priors</a>
+        <a class="brand" href="#top">XM-Plug</a>
         <div class="nav-links">
-          <a href="#timeline">Timeline</a>
           <a href="#equations">Equations</a>
-          <a href="#comparisons">Comparisons</a>
-          <a href="#science">Science</a>
-          <a href="#visualizations">Visualizations</a>
+          <a href="#figure">Figure</a>
+          <a href="#issues">Issues</a>
+          <a href="#warmstart">Warm-start</a>
+          <a href="#pictures">Visualizations</a>
+          <a href="#fmplug">FMPlug</a>
           <a href="#papers">Papers</a>
         </div>
       </nav>
@@ -36,80 +37,28 @@
 
     <main id="top">
       <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Pretrained models for inverse problems</p>
-          <h1>Plug-in optimization turns powerful generative priors into practical solvers.</h1>
-          <p class="hero-lede">
-            This page traces a line of work from diffusion-model plug-ins, through temporally
-            consistent video restoration, to foundation flow-matching priors. The shared idea is
-            simple at a high level: keep the pretrained model intact, expose it as a prior, and
-            solve the inverse problem around it.
-          </p>
-          <div class="hero-actions">
-            <a class="button primary" href="#timeline">Explore timeline</a>
-            <a class="button secondary" href="#visualizations">Try comparisons</a>
-          </div>
-        </div>
-        <div class="hero-visual" aria-label="Conceptual plug-in inverse problem workflow">
-          <div class="signal-card raw">
-            <span>Measurement</span>
-            <strong>y = A(x) + n</strong>
-          </div>
-          <div class="flow-line"></div>
-          <div class="prior-core">
-            <span>Pretrained prior</span>
-            <strong>DM / Video DM / FM</strong>
-          </div>
-          <div class="flow-line"></div>
-          <div class="signal-card clean">
-            <span>Reconstruction</span>
-            <strong>x_hat</strong>
-          </div>
-        </div>
+        <p class="label">Project overview</p>
+        <h1>Unifying plug-in methods for inverse problem solving</h1>
+        <p class="lead">
+          This project organizes our group's plug-in inverse problem solvers under one shared
+          language. The central idea is to separate the measurement model from the pretrained
+          generative prior, then solve the inverse problem by optimizing through the prior rather
+          than interleaving ad hoc correction steps with sampling.
+        </p>
       </section>
 
-      <section class="section intro">
-        <div class="section-heading">
-          <p class="eyebrow">Unifying theme</p>
-          <h2>Use the model as a plug-in prior, not a solver that must be rewritten.</h2>
+      <section id="equations" class="section">
+        <div class="section-title">
+          <!-- <p class="label">Part 1</p> -->
+          <h2>Two master equations</h2>
         </div>
-        <div class="intro-grid">
-          <article>
-            <h3>Pretrained prior</h3>
-            <p>
-              The model contributes learned structure: natural image manifolds, video semantics,
-              temporal coherence, or broad foundation-model statistics.
-            </p>
-          </article>
-          <article>
-            <h3>Forward model</h3>
-            <p>
-              The inverse task contributes physics or degradation constraints through the
-              measurement operator, loss, and noise model.
-            </p>
-          </article>
-          <article>
-            <h3>Optimization wrapper</h3>
-            <p>
-              Plug-in methods optimize latent seeds, warm starts, or trajectories around the
-              pretrained model while preserving measurement fidelity.
-            </p>
-          </article>
-        </div>
-      </section>
 
-      <section id="equations" class="section equations-section">
-        <div class="section-heading">
-          <p class="eyebrow">Master equations</p>
-          <h2>The plug-in view starts from MAP and moves the prior into a pretrained generator.</h2>
-        </div>
-        <div class="equation-grid">
-          <article class="equation-card">
-            <span class="equation-number">i</span>
-            <h3>Typical MAP formulation</h3>
+        <div class="equation-list">
+          <article class="equation-block">
+            <h3>i. Typical MAP formulation</h3>
             <div class="math-block">
               \[
-                \widehat{x}_{\mathrm{MAP}}
+                \widehat{x}
                 =
                 \arg\min_x
                 \ell\!\left(y, \mathcal{A}(x)\right)
@@ -118,14 +67,14 @@
               \]
             </div>
             <p>
-              The data-fitting term enforces measurement consistency, while the regularizer
-              encodes prior knowledge about valid solutions.
+              Here \(y\) is the measurement, \(\mathcal{A}\) is the forward operator,
+              \(\ell(y,\mathcal{A}(x))\) enforces measurement fidelity, and \(\Omega(x)\)
+              is a handcrafted or learned prior regularizer.
             </p>
           </article>
 
-          <article class="equation-card">
-            <span class="equation-number">ii</span>
-            <h3>Plug-in formulation</h3>
+          <article class="equation-block">
+            <h3>ii. Plug-in formulation</h3>
             <div class="math-block">
               \[
                 \widehat{z}
@@ -135,302 +84,361 @@
                 +
                 \lambda R(z),
                 \qquad
-                \widehat{x} = G_\theta(\widehat{z})
+                \widehat{x}=G_\theta(\widehat{z})
               \]
             </div>
             <p>
-              The pretrained model \(G_\theta\) acts as a reusable prior map, and optimization
-              happens in the model's seed, latent, or trajectory space.
+              The pretrained model \(G_\theta\) is kept fixed and plugged into the inverse
+              problem as the prior. Optimization happens over the latent variable \(z\), while the
+              measurement loss remains explicit.
             </p>
           </article>
         </div>
       </section>
 
-      <section id="timeline" class="section timeline-section">
-        <div class="section-heading">
-          <p class="eyebrow">Research timeline</p>
-          <h2>From domain-specific diffusion priors to reusable foundation flow priors.</h2>
+      <section id="figure" class="section">
+        <div class="section-title">
+          <!-- <p class="label">Part 2</p> -->
+          <h2>Interleaving vs. plug-in methods</h2>
         </div>
 
-        <div class="timeline">
-          <article class="timeline-item">
-            <div class="time-marker">01</div>
-            <div class="timeline-content">
-              <p class="paper-label">NeurIPS 2024</p>
-              <h3>DMPlug</h3>
-              <p>
-                DMPlug views the reverse diffusion process as a function and plugs it into a
-                measurement-aware optimization problem. This separates the generative prior from
-                the inverse-problem objective, improving both manifold feasibility and measurement
-                feasibility, especially for nonlinear inverse problems.
-              </p>
-              <ul class="tag-list">
-                <li>Diffusion model prior</li>
-                <li>Seed-space optimization</li>
-                <li>Linear and nonlinear inverse problems</li>
-              </ul>
-            </div>
-          </article>
+        <figure class="paper-figure">
+          <img
+            src="visualization/interleaving_vs_plug-in.png"
+            alt="Interleaving methods contrasted with plug-in methods"
+          >
+          <figcaption>
+            Interleaving methods repeatedly mix generative steps with measurement corrections.
+            Plug-in methods instead optimize a measurement-aware objective through the pretrained
+            prior.
+          </figcaption>
+        </figure>
 
-          <article class="timeline-item">
-            <div class="time-marker">02</div>
-            <div class="timeline-content">
-              <p class="paper-label">AAAI 2026 camera-ready</p>
-              <h3>Temporal-Consistent Video Restoration</h3>
-              <p>
-                The video restoration work carries the plug-in perspective into video, where
-                frame quality alone is not enough. It parameterizes video frames through diffusion
-                seeds and adds bilevel temporal consistency: semantic consistency in seed space
-                and pixel-level consistency through progressive optical-flow warping.
-              </p>
-              <ul class="tag-list">
-                <li>Video restoration</li>
-                <li>Temporal consistency</li>
-                <li>Pretrained diffusion models</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="timeline-item">
-            <div class="time-marker">03</div>
-            <div class="timeline-content">
-              <p class="paper-label">2025 manuscript &middot; foundation flow matching</p>
-              <h3>FMPlug</h3>
-              <p>
-                FMPlug extends plug-in inverse-problem solving to foundation flow-matching
-                models. It combines instance-guided, time-dependent warm starts with Gaussianity
-                regularization so broad foundation priors can be steered toward task-specific
-                reconstructions without losing the model's flow structure.
-              </p>
-              <ul class="tag-list">
-                <li>Foundation model prior</li>
-                <li>Flow matching</li>
-                <li>Scientific and image restoration inverse problems</li>
-              </ul>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section id="comparisons" class="section comparisons-section">
-        <div class="section-heading">
-          <p class="eyebrow">Method comparisons</p>
-          <h2>Two axes explain why the plug-in direction matters.</h2>
-        </div>
-
-        <div class="comparison-grid">
-          <article class="comparison-panel wide">
-            <div class="comparison-header">
-              <span class="axis-label">Solver strategy</span>
-              <h3>Plug-in vs. interleaving</h3>
-            </div>
-            <div class="two-column">
-              <div>
-                <h4>Interleaving method</h4>
-                <p>
-                  Alternates reverse generative steps with measurement-correction steps. This is
-                  convenient, but correction steps can pull samples away from the learned manifold
-                  while reverse steps can weaken measurement fidelity.
-                </p>
-              </div>
-              <div>
-                <h4>Plug-in method</h4>
-                <p>
-                  Treats the pretrained generative process as a differentiable prior function and
-                  optimizes around it. The inverse-problem objective can explicitly balance visual
-                  realism, data consistency, and robustness to unknown noise.
-                </p>
-              </div>
-            </div>
-            <div class="mini-diagram" aria-label="Plug-in versus interleaving conceptual diagram">
-              <div class="diagram-row muted">
-                <span>Reverse step</span><span>Correction</span><span>Reverse step</span><span>Correction</span>
-              </div>
-              <div class="diagram-row strong">
-                <span>Pretrained prior function</span><span>+</span><span>Measurement objective</span>
-              </div>
-            </div>
-            <div class="issue-grid">
-              <article class="issue-card">
-                <h4>Manifold feasibility</h4>
-                <p>
-                  Interleaving corrections may push samples away from the pretrained model's
-                  natural image or signal manifold.
-                </p>
-                <strong>Plug-in response</strong>
-                <p>
-                  Optimize through the pretrained model map so reconstructions remain tied to
-                  the learned prior.
-                </p>
-              </article>
-              <article class="issue-card">
-                <h4>Measurement feasibility</h4>
-                <p>
-                  Reverse generative steps can dilute hard-won progress toward satisfying the
-                  forward measurement model.
-                </p>
-                <strong>Plug-in response</strong>
-                <p>
-                  Put the measurement loss directly in the outer objective and optimize it
-                  throughout reconstruction.
-                </p>
-              </article>
-              <article class="issue-card">
-                <h4>Noise instability</h4>
-                <p>
-                  Unknown noise type or level can make handcrafted correction schedules brittle.
-                </p>
-                <strong>Plug-in response</strong>
-                <p>
-                  Treat robustness as part of the optimization problem, rather than a fixed
-                  sampling-time correction rule.
-                </p>
-              </article>
-            </div>
-            <figure class="method-figure">
-              <div class="method-placeholder">
-                <span>Master figure placeholder: interleaving vs. plug-in methods from DMPlug</span>
-              </div>
-              <figcaption>
-                Placeholder for the DMPlug comparison figure contrasting interleaving and plug-in methods.
-              </figcaption>
-            </figure>
-          </article>
-
-          <article class="comparison-panel">
-            <div class="comparison-header">
-              <span class="axis-label">Prior source</span>
-              <h3>Domain-specific model vs. foundation model</h3>
-            </div>
-            <div class="two-column">
-              <div>
-                <h4>Domain-specific model</h4>
-                <p>
-                  Often delivers strong performance when the test distribution matches training
-                  data, but may require collecting paired or curated domain data and retraining
-                  across tasks.
-                </p>
-              </div>
-              <div>
-                <h4>Foundation model</h4>
-                <p>
-                  Offers a reusable prior across broader domains. The challenge is steering it
-                  toward measurements and scientific structure without overcorrecting or breaking
-                  the foundation model's sampling geometry.
-                </p>
-              </div>
-            </div>
-            <div class="spectrum" aria-label="Prior source spectrum">
-              <span>Specialized accuracy</span>
-              <div class="spectrum-track"><span></span></div>
-              <span>Reusable generality</span>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section id="science" class="section science-section">
-        <div class="science-band">
-          <div>
-            <p class="eyebrow">FMPlug for science</p>
-            <h2>FMPlug gives foundation flow priors unprecedented reach into scientific inverse problems.</h2>
-          </div>
-          <div class="science-copy">
+        <div class="method-columns">
+          <article>
+            <h3>Interleaving methods</h3>
             <p>
-              Scientific inverse problems often have scarce paired data, specialized forward
-              operators, and measurement processes that differ sharply from everyday image
-              restoration. FMPlug is designed for this regime: it brings broad foundation
-              flow-matching priors into task-specific reconstruction without requiring a new
-              domain model for every scientific problem.
+              Alternate between generative sampling steps and measurement-correction steps.
+              The prior and measurement model interact through a schedule of local corrections.
             </p>
-            <div class="science-points">
-              <span>Few similar samples</span>
-              <span>Problem-specific operators</span>
-              <span>Foundation FM reuse</span>
+          </article>
+          <article>
+            <h3>Plug-in methods</h3>
+            <p>
+              Treat the pretrained generative process as a differentiable prior function and
+              optimize a measurement-aware objective through that function.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="issues" class="section">
+        <div class="section-title">
+          <!-- <p class="label">Part 3</p> -->
+          <h2>Why interleaving can be fragile</h2>
+        </div>
+
+        <div class="issue-table" role="table" aria-label="Interleaving issues and plug-in responses">
+          <div class="issue-row issue-head" role="row">
+            <div role="columnheader">Issue in interleaving methods</div>
+            <div role="columnheader">How plug-in methods address it</div>
+          </div>
+
+          <div class="issue-row" role="row">
+            <div role="cell">
+              <h3>Manifold feasibility</h3>
+              <p>
+                Measurement corrections can push samples away from the learned signal manifold,
+                so the reconstruction may satisfy some measurements while becoming less realistic
+                or less physically plausible.
+              </p>
+            </div>
+            <div role="cell">
+              <p>
+                Plug-in methods parameterize the solution through the pretrained model, keeping
+                reconstruction tied to the learned prior throughout optimization.
+              </p>
+            </div>
+          </div>
+
+          <div class="issue-row" role="row">
+            <div role="cell">
+              <h3>Measurement feasibility</h3>
+              <p>
+                Reverse generative steps may undo progress made by correction steps, causing
+                oscillation between plausible samples and measurement-consistent samples.
+              </p>
+            </div>
+            <div role="cell">
+              <p>
+                The measurement loss is placed directly in the outer objective, so every update
+                can be evaluated against the forward model.
+              </p>
+            </div>
+          </div>
+
+          <div class="issue-row" role="row">
+            <div role="cell">
+              <h3>Noise instability</h3>
+              <p>
+                Correction schedules can be sensitive to unknown or mismatched noise levels,
+                especially when the measurement process differs from the assumptions used to
+                design the sampler.
+              </p>
+            </div>
+            <div role="cell">
+              <p>
+                Plug-in methods can incorporate noise handling, regularization, and stopping
+                criteria in the optimization objective instead of relying on fixed sampling-time
+                heuristics.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="visualizations" class="section visualizations-section">
-        <div class="section-heading">
-          <p class="eyebrow">Visualization placeholders</p>
-          <h2>Static raw/reconstructed pairs are ready for side-by-side interaction.</h2>
+      <section id="warmstart" class="section">
+        <div class="section-title">
+          <p class="label">FMPlug strategy</p>
+          <h2>From prior mismatch to time-dependent warm-start</h2>
           <p>
-            Drop each image pair into the project folder, set the paths on the comparison module,
-            and the slider will reveal the reconstruction over the raw measurement.
+            The motivation of FMPlug is that foundation flow-matching models are powerful priors,
+            but their useful behavior is concentrated around the Gaussian source structure seen
+            during training. A naive warm start can shift the seed away from this high-probability
+            shell, while a pure cold start ignores the information already present in the
+            measurement. FMPlug resolves this tension by injecting the measurement at a learnable
+            time on the flow path and constraining the latent seed to remain Gaussian-like.
           </p>
         </div>
 
-        <div class="visual-grid">
-          <article class="visual-card" data-compare>
-            <div class="visual-card-header">
-              <span>DMPlug</span>
-              <h3>Image inverse problem</h3>
-            </div>
-            <div class="compare" data-position="50" data-before-src="" data-after-src="">
-              <div class="compare-layer before placeholder placeholder-raw"></div>
-              <div class="compare-layer after placeholder placeholder-clean"></div>
-              <div class="compare-handle" aria-hidden="true"></div>
-              <input type="range" min="0" max="100" value="50" aria-label="DMPlug comparison slider">
-            </div>
-            <p class="visual-caption">Set paths for the raw image and DMPlug reconstruction.</p>
-          </article>
+        <div class="warmstart-layout">
+          <figure class="paper-figure compact">
+            <img src="visualization/warmstart.png" alt="FMPlug warm-start strategy">
+          </figure>
 
-          <article class="visual-card" data-compare>
-            <div class="visual-card-header">
-              <span>Video restoration</span>
-              <h3>Frame consistency</h3>
+          <article class="objective-card">
+            <h3>Simple-distortion objective</h3>
+            <div class="math-block">
+              \[
+                \min_{z,\,t\in[0,1]}
+                \ell\!\left(
+                  y,\,
+                  \mathcal{A}\circ G_\theta(\alpha_t y+\beta_t z, t)
+                \right)
+                \quad
+                \mathrm{s.t.}\quad
+                z\in S^{d-1}_{\epsilon}(0,\sqrt{d})
+              \]
             </div>
-            <div class="compare" data-position="50" data-before-src="" data-after-src="">
-              <div class="compare-layer before placeholder placeholder-video"></div>
-              <div class="compare-layer after placeholder placeholder-video-clean"></div>
-              <div class="compare-handle" aria-hidden="true"></div>
-              <input type="range" min="0" max="100" value="50" aria-label="Video restoration comparison slider">
-            </div>
-            <p class="visual-caption">Set paths for a degraded frame and restored frame.</p>
-          </article>
 
-          <article class="visual-card" data-compare>
-            <div class="visual-card-header">
-              <span>FMPlug</span>
-              <h3>Foundation prior reconstruction</h3>
-            </div>
-            <div class="compare" data-position="50" data-before-src="" data-after-src="">
-              <div class="compare-layer before placeholder placeholder-science"></div>
-              <div class="compare-layer after placeholder placeholder-science-clean"></div>
-              <div class="compare-handle" aria-hidden="true"></div>
-              <input type="range" min="0" max="100" value="50" aria-label="FMPlug comparison slider">
-            </div>
-            <p class="visual-caption">Set paths for the measurement and FMPlug reconstruction.</p>
+            <p>
+              For image restoration, \(y\) is close enough to the unknown object to serve as an
+              instance guide. The learnable time \(t\) decides how much of that guide enters the
+              trajectory, while the shell constraint preserves the Gaussian concentration structure
+              expected by the foundation FM model.
+            </p>
           </article>
         </div>
       </section>
 
-      <section id="papers" class="section papers-section">
-        <div class="section-heading">
-          <p class="eyebrow">Papers</p>
-          <h2>External paper links</h2>
+      <section id="pictures" class="section">
+        <div class="section-title">
+          <p class="label">Image restoration visualizations</p>
+          <h2>Measurement and reconstruction comparisons</h2>
+          <p>
+            Each method shows its available image-restoration tasks in one row. Drag each slider
+            to compare the degraded measurement with the reconstruction.
+          </p>
         </div>
+
+        <div class="visualization-groups">
+          <section class="method-group" aria-labelledby="dmplug-examples">
+            <h3 id="dmplug-examples">DMPlug</h3>
+            <div class="comparison-examples">
+              <article class="comparison-card">
+                <h4>Inpainting</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/DMPlug/Inpainting/measurement.png" data-reconstruction-src="visualization/ImageRestoration/DMPlug/Inpainting/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="DMPlug inpainting comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+
+              <article class="comparison-card">
+                <h4>Nonlinear deblur</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/DMPlug/nonlinear_deblur/measurement.png" data-reconstruction-src="visualization/ImageRestoration/DMPlug/nonlinear_deblur/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="DMPlug nonlinear deblur comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+
+              <article class="comparison-card">
+                <h4>Super-resolution</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/DMPlug/SuperResolution/measurement.png" data-reconstruction-src="visualization/ImageRestoration/DMPlug/SuperResolution/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="DMPlug super-resolution comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+
+              <article class="comparison-card">
+                <h4>Turbulence</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/DMPlug/Turbulence/measurement.png" data-reconstruction-src="visualization/ImageRestoration/DMPlug/Turbulence/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="DMPlug turbulence comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="method-group" aria-labelledby="fmplug-image-examples">
+            <h3 id="fmplug-image-examples">FMPlug</h3>
+            <div class="comparison-examples">
+              <article class="comparison-card">
+                <h4>Gaussian deblur</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/FMPlug/Gaussian Deblur/measurement.png" data-reconstruction-src="visualization/ImageRestoration/FMPlug/Gaussian Deblur/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="FMPlug gaussian deblur comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+
+              <article class="comparison-card">
+                <h4>Inpainting</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/FMPlug/Inpainting/measurement.png" data-reconstruction-src="visualization/ImageRestoration/FMPlug/Inpainting/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="FMPlug inpainting comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+
+              <article class="comparison-card">
+                <h4>Motion deblur</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/FMPlug/Motion Deblur/measurement.png" data-reconstruction-src="visualization/ImageRestoration/FMPlug/Motion Deblur/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="FMPlug motion deblur comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+
+              <article class="comparison-card">
+                <h4>Super-resolution</h4>
+                <div class="compare-slider" data-measurement-src="visualization/ImageRestoration/FMPlug/Super Resolution/measurement.png" data-reconstruction-src="visualization/ImageRestoration/FMPlug/Super Resolution/ours.png">
+                  <div class="compare-image measurement placeholder-image"></div>
+                  <div class="compare-image reconstruction placeholder-image"></div>
+                  <div class="compare-divider" aria-hidden="true"></div>
+                  <input type="range" min="0" max="100" value="50" aria-label="FMPlug super-resolution comparison slider">
+                </div>
+                <div class="compare-labels"><span>Measurement</span><span>Reconstruction</span></div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="fmplug" class="section">
+        <div class="section-title">
+          <!-- <p class="label">Part 4</p> -->
+          <h2>FMPlug expands plug-in methods to scientific inverse problems</h2>
+          <p>
+            Scientific inverse problems often have sparse paired data and a strong domain shift
+            between measurements and objects: the measurement may be Fourier, scattered-field, or
+            nonlinear sensor data, while the object is the scientific image we want to recover.
+            In this regime, the measurement itself may not be a good warm-start guide. FMPlug uses
+            a few object-domain instances instead, turning scarce scientific examples into
+            an instance prior for the foundation FM model.
+          </p>
+        </div>
+
+        <div class="science-figures">
+          <figure class="paper-figure">
+            <img src="visualization/ScientificIPs/few_shot.png" alt="Few-shot scientific inverse problem intuition">
+            <figcaption>
+              Few-shot scientific domains often concentrate around a small visual family, making
+              related instances useful guides for reconstruction.
+            </figcaption>
+          </figure>
+
+          <figure class="paper-figure">
+            <img src="visualization/ScientificIPs/instance_prior.jpg" alt="Few-shot instance prior solution">
+            <figcaption>
+              FMPlug forms an instance-guided warm start from sparse samples and optimizes the
+              instance weights jointly with the latent seed and time.
+            </figcaption>
+          </figure>
+
+          <article class="objective-card science-objective">
+            <h3>Few-shot scientific objective</h3>
+            <div class="math-block">
+              \[
+                \min_{z,\,t,\,w}
+                \ell\!\left(
+                  y,\,
+                  \mathcal{A}\circ G_\theta
+                  \left(\alpha_t\sum_{k=1}^{K}w_k x_k+\beta_t z,t\right)
+                \right)
+                \quad
+                \mathrm{s.t.}\quad
+                z\in S^{d-1}_{\epsilon}(0,\sqrt{d}),\,
+                t\in[0,1],\,w\in\Delta_K
+              \]
+            </div>
+            <p>
+              The simplex weights \(w\) select and combine the most relevant few-shot instances
+              \(\{x_k\}_{k=1}^{K}\). This replaces direct measurement warm-starting with
+              object-domain guidance, which is better aligned with scientific reconstruction under
+              measurement-object domain shift.
+            </p>
+          </article>
+
+          <figure class="paper-figure scientific-comparison">
+            <img src="visualization/ScientificIPs/Scientific_comparison.png" alt="Scientific inverse problem comparison results">
+            <figcaption>
+              Scientific IP comparisons show FMPlug recovering main structures across linear
+              inverse scattering, compressed-sensing MRI, and black hole imaging.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="papers" class="section">
+        <div class="section-title">
+          <p class="label">References</p>
+          <h2>Related papers</h2>
+        </div>
+
         <div class="paper-list">
-          <a class="pending-link" href="https://example.com/dmplug" target="_blank" rel="noreferrer">
-            <strong>DMPlug: A Plug-in Method for Solving Inverse Problems with Diffusion Models</strong>
-            <span>External link placeholder</span>
+          <a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/d5c04aa72b92c53bda5b525b60958295-Abstract-Conference.html" target="_blank" rel="noreferrer">
+            DMPlug: A Plug-in Method for Solving Inverse Problems with Diffusion Models
           </a>
-          <a class="pending-link" href="https://example.com/video-restoration" target="_blank" rel="noreferrer">
-            <strong>Temporal-Consistent Video Restoration with Pre-trained Diffusion Models</strong>
-            <span>External link placeholder</span>
+          <a href="https://ojs.aaai.org/index.php/AAAI/article/view/37943" target="_blank" rel="noreferrer">
+            Temporal-Consistent Video Restoration with Pre-trained Diffusion Models
           </a>
-          <a class="pending-link" href="https://example.com/fmplug" target="_blank" rel="noreferrer">
-            <strong>Saving Foundation Flow-Matching Priors for Inverse Problems</strong>
-            <span>External link placeholder</span>
+          <a href="https://arxiv.org/abs/2511.16520" target="_blank" rel="noreferrer">
+            Saving Foundation Flow-Matching Priors for Inverse Problems
           </a>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <p>Plug-in inverse problem solving with pretrained models.</p>
+      <p>XM-Plug: a unified plug-in framework for inverse problem solving.</p>
     </footer>
 
     <script src="script.js"></script>

@@ -1,41 +1,30 @@
-function setComparePosition(compare, value) {
+function setComparisonPosition(slider, value) {
   const bounded = Math.max(0, Math.min(100, Number(value)));
-  const after = compare.querySelector(".compare-layer.after");
-  const handle = compare.querySelector(".compare-handle");
+  const reconstruction = slider.querySelector(".compare-image.reconstruction");
+  const divider = slider.querySelector(".compare-divider");
 
-  after.style.clipPath = `inset(0 0 0 ${bounded}%)`;
-  handle.style.left = `${bounded}%`;
-  compare.dataset.position = String(bounded);
+  reconstruction.style.clipPath = `inset(0 0 0 ${bounded}%)`;
+  divider.style.left = `${bounded}%`;
+  slider.dataset.position = String(bounded);
 }
 
-function setStaticImage(layer, src) {
+function setComparisonImage(layer, src) {
   if (!layer || !src) return;
 
   layer.style.backgroundImage = `url("${src}")`;
-  layer.classList.add("has-image");
-  layer.classList.remove(
-    "placeholder",
-    "placeholder-raw",
-    "placeholder-clean",
-    "placeholder-video",
-    "placeholder-video-clean",
-    "placeholder-science",
-    "placeholder-science-clean"
-  );
+  layer.classList.remove("placeholder-image");
 }
 
-document.querySelectorAll("[data-compare]").forEach((card) => {
-  const compare = card.querySelector(".compare");
-  const slider = card.querySelector('input[type="range"]');
-  const beforeLayer = card.querySelector(".compare-layer.before");
-  const afterLayer = card.querySelector(".compare-layer.after");
+document.querySelectorAll(".compare-slider").forEach((slider) => {
+  const input = slider.querySelector('input[type="range"]');
+  const measurement = slider.querySelector(".compare-image.measurement");
+  const reconstruction = slider.querySelector(".compare-image.reconstruction");
 
-  setStaticImage(beforeLayer, compare.dataset.beforeSrc);
-  setStaticImage(afterLayer, compare.dataset.afterSrc);
+  setComparisonImage(measurement, slider.dataset.measurementSrc);
+  setComparisonImage(reconstruction, slider.dataset.reconstructionSrc);
+  setComparisonPosition(slider, input.value);
 
-  setComparePosition(compare, slider.value);
-
-  slider.addEventListener("input", (event) => {
-    setComparePosition(compare, event.target.value);
+  input.addEventListener("input", (event) => {
+    setComparisonPosition(slider, event.target.value);
   });
 });

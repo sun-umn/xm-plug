@@ -1,0 +1,1264 @@
+000
+001
+002
+003
+004
+005
+006
+007
+008
+009
+010
+011
+012
+013
+014
+015
+016
+017
+018
+019
+020
+021
+022
+023
+024
+025
+026
+027
+028
+029
+030
+031
+032
+033
+034
+035
+036
+037
+038
+039
+040
+041
+042
+043
+044
+045
+046
+047
+048
+049
+050
+051
+052
+053
+054
+Saving Foundation Flow-Matching Priors for Inverse Problems
+Anonymous Authors1
+Abstract
+Foundation flow-matching (FM) models promise
+universal priors for solving inverse problems (IPs),
+yet today they trail behind domain-specific or even
+untrained priors. How can we unlock their poten-
+tial? We introduce FMPlug, a plug-in framework
+that redefines how foundation FMs are used in
+IPs. FMPlug combines an instance-guided, time-
+dependent warm-start strategy with a sharp Gaus-
+sianity regularization, adding problem-specific
+guidance while preserving the Gaussian struc-
+tures. This leads to a significant performance
+boost across image restoration and scientific IPs.
+Our results point to a path for making foundation
+FM models practical, reusable priors for IPs, es-
+pecially scientific ones with few similar samples.
+1. Introduction
+Inverse problems (IPs) are prevalent in many fields, such
+as medical imaging, remote sensing, and computer vision
+(Aster et al., 2018; Mohamad-Djafari, 2013). In an IP, the
+objective is to recover an unknown object x of interest from
+the relevant measurement y ≈ A(x), where the mapping
+A(·), called the forward model, represents the measure-
+ment process, and the approximation sign ≈ accounts for
+possible modeling errors and measurement noise. Due to
+insufficient measurement and/or the approximate relation-
+ship in y ≈ A (x), in practice x is typically not uniquely
+recoverable from y alone, i.e., ill-posedness. So, to obtain
+reliable and meaningful solutions for IPs, it is important
+to incorporate prior knowledge of x. Traditional ideas for
+solving IPs rely on optimization, often motivated under the
+Maximum A Posterior (MAP) estimation principle:
+minx ℓ(y, A(x)) + Ω(x). (1.1)
+Here, minimizing the data fitting loss ℓ(y, A(x)) encour-
+ages y ≈ A(x), and the regularization term Ω(x) encodes
+1Anonymous Institution, Anonymous City, Anonymous Region,
+Anonymous Country. Correspondence to: Anonymous Author
+<anon.email@domain.com>.
+Preliminary work. Under review by the International Conference
+on Machine Learning (ICML). Do not distribute.
+(a) Plug-in approach
+ (b) Our FMPlug
+Figure 1. Visual illustration of the general plug-in approach (left)
+and our FMPlug method (right) for solving IPs with pretrained
+foundation FM priors
+prior knowledge of ideal solutions to resolve ambiguities
+and hence mitigate potential ill-posedness. The resulting op-
+timization problems are often solved by gradient-based iter-
+ative methods. Advances in deep learning (DL) have rev-
+olutionized IP solving. Different DL-based approaches to
+IPs operate with variable levels of data-knowledge tradeoffs.
+For example, supervised approaches take paired datasets
+{(yi, xi)}i=1,...,N and directly learn the inverse mapping
+y 7→ x, with or without using A (Ongie et al., 2020; Monga
+et al., 2021; Zhang et al., 2024); alternatively, data-driven
+priors learned from object-only datasets {xi}i=1,...,N can
+be integrated with Eq. (1.1) to form hybrid optimization for-
+mulations that effectively combine data-driven priors on x
+and knowledge about A, noise, and other aspects (Oliviero-
+Durmus et al., 2025; Daras et al., 2024; Wang et al., 2024;
+2025); strikingly, untrained DL models themselves can serve
+as effective plug-in priors for Eq. (1.1), without any extra
+data (Alkhouri et al., 2024; 2025; Wang et al., 2023; Li et al.,
+2023; Zhuang et al., 2023a;b; Li et al., 2021). (Ongie et al.,
+2020; Monga et al., 2021; Alkhouri et al., 2025; Scarlett
+et al., 2023; Daras et al., 2024; Oliviero-Durmus et al., 2025;
+Vyas et al., 2024; Liang et al., 2025) give comprehensive
+reviews of these DL-based ideas.
+In this paper, we focus on solving IPs with deep
+generative priors (DGPs) pretrained on object-only
+datasets (Oliviero-Durmus et al., 2025). Compared to super-
+vised approaches that need to construct task-specific paired
+datasets and perform task-specific training, this approach
+enjoys great flexibility, as DGPs can be plugged into and
+1
+055
+056
+057
+058
+059
+060
+061
+062
+063
+064
+065
+066
+067
+068
+069
+070
+071
+072
+073
+074
+075
+076
+077
+078
+079
+080
+081
+082
+083
+084
+085
+086
+087
+088
+089
+090
+091
+092
+093
+094
+095
+096
+097
+098
+099
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+Submission and Formatting Instructions for ICML 2026
+reused for different IP problems related to the same fam-
+ily of objects. Among the different DGPs, we are most
+interested in those based on the emerging flow-matching
+(FM) framework (Lipman et al., 2024)—which is rapidly
+replacing diffusion models as the backbone of increasingly
+more state-of-the-art (SOTA) deep generative models in var-
+ious domains (Black Forest Labs et al, 2025; Patrick Esser
+et al, 2024; Agarwal, Niket et al, 2025) due to its conceptual
+simplicity and superior performance.
+Several recent works have proposed to solve IPs with pre-
+trained FM priors (Daras et al., 2024). Although promising,
+most of them are based on domain-specific FM priors, e.g.,
+trained on the FFHQ dataset for human faces and the LSUN
+bedrooms dataset for bedroom scenes. This limits the
+practicality of these methods, as domain-specific FM mod-
+els are not always readily available, e.g., due to data or
+computing constraints. On the other hand, the emergence
+of domain-agnostic foundation FM models, such as Stable
+Diffusion 3.0 (or newer versions) (Patrick Esser et al, 2024)
+and Flux.1 (Black Forest Labs et al, 2025) for images, obso-
+letes domain-specific developments; (Kim et al., 2025; Patel
+et al., 2024; Ben-Hamu et al., 2024; Martin et al., 2025)
+propose such ideas. However, the performance reported
+from these works based on foundation FM priors clearly
+lags behind those with domain-specific FM priors, and
+even behind those with untrained priors ; see Sec. 2.3.
+This is not entirely surprising, as foundation priors are con-
+siderably weaker than domain-specific priors in terms of
+constraining the objects.
+In this paper, we take the first step in closing the perfor-
+mance gap. We focus on IPs where the object x is an image,
+as foundation FM models for images are widely available
+and image-related IPs find broad applications. To strengthen
+the foundation FM priors, we consider two practical settings:
+(A) simple-distortion setting, in which x and y are close
+(e.g., typical image restoration tasks); and (B) few-shot set-
+ting, in which a small number of image instances close to x
+are provided (e.g., scientific IPs). For both settings, taking
+the image instance(s) close to x as a guide, we develop a
+time-dependent warm-start strategy and a sharp Gaussian
+regularization that together lead to convincing performance
+gains. In summary, our contributions include:
+• Identifying the performance gap between foundation
+FM, domain-specific, and untrained priors for solving
+IPs (Sec. 2.3).
+• Proposing a time-dependent warm-start strategy and a
+sharp Gaussian regularization that effectively strengthen
+foundation FM priors (Sec. 3). We introduce a few-shot,
+instance-guided approach tailored for scientific IPs.
+• Confirming the effectiveness of the proposed prior-
+strengthening method through systematic experimenta-
+tion (Sec. 4). Our proposed method, FMPlug, achieves
+state-of-the-art performance among pretrained foundation
+FM-based solvers for simple distortion and scientific IPs.
+2. Technical background
+2.1. Flow matching (FM)
+Flow Matching (FM) models are an emerging class of deep
+generative models (Lipman et al., 2024). They learn a con-
+tinuous flow to transform a prior distribution p0(z) into
+a target distribution p1(z)—in the same spirit as continu-
+ous normalizing flow (CNF) (Chen et al., 2018; Grathwohl
+et al., 2019), where the flow is described by an ordinary
+differential equation (ODE)
+dz = v(z, t) dt. (2.1)
+Whereas CNF focuses on the density path induced by the
+flow and performs the maximum likelihood estimation as the
+learning objective, FM tries to learn a parametrized velocity
+field vθ(z, t) to match the one associated with the desired
+flow. To generate new samples after training, one simply
+samples z0 ∼ p0(z) and numerically solves the learned
+ODE induced by vθ(z, t) from t = 0 to t = 1, to produce a
+sample z1 ∼ p1(z).
+For tractability, in practice, FM matches the conditional
+velocity field instead of the unconditional one discussed
+above: for each training point x, a simple conditional
+probability path pt(zt|x), e.g., induced by a linear flow
+zt = tx+(1 − t)z0, is defined. The model vθ(zt, t) is then
+trained to learn the known vector field of these conditional
+flows, i.e., u(zt, t|x):
+minθ Ex,z0,t ∥vθ(zt, t) − u(zt, t|x)∥2 . (2.2)
+Diffusion models based on probability flow ODEs can also
+be interpreted as FMs, although (1) they match the score
+functions ∇z log pt(z) induced by the chosen probability
+path, not the velocity field as in FM; and (2) they typically
+work with affine flows for convenience, instead of the simple
+linear flows often taken in FM practice (Lipman et al., 2024;
+Song et al., 2021). So, FM can be viewed as a general deep
+generative framework that covers diffusion models.
+2.2. Pretrained FM priors for IPs
+Recent methods that use pretrained FM priors for solv-
+ing IPs can be classified into two families: (1) The in-
+terleaving approach interleaves the ODE generation steps
+(i.e., numerical integration steps) with gradient steps toward
+measurement feasibility (i.e., moving x around to satisfy
+y ≈ A(x)) (Pokle et al., 2023; Kim et al., 2025; Patel et al.,
+2024; Martin et al., 2025; Erbach et al., 2025). Despite the
+simplicity and empirical effectiveness on simple IPs, these
+methods might not converge or return an x that respects the
+2
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+Submission and Formatting Instructions for ICML 2026
+pretrained FM prior (i.e., manifold feasibility) or satisfies
+the measurement constraint y ≈ A(x) (i.e., measurement
+feasibility); and (2) The plug-in approach views the gener-
+ation process as a function Gθ that maps any source sample
+to a target sample, and plugs the prior into Eq. (1.1) to obtain
+a unified formulation (Ben-Hamu et al., 2024):
+z∗ ∈ arg minz ℓ(y, A ◦ Gθ(z)) + Ω ◦ Gθ(z), (2.3)
+where ◦ denotes functional composition. The estimated
+object is Gθ(z∗). Here, the generator Gθ is fixed and
+the output Gθ(z) naturally satisfies manifold feasibility.
+In addition, global optimization of Eq. (2.3) forces small
+ℓ(y, A ◦ Gθ(z)), and hence y ≈ A ◦ G θ(z), i.e., leading to
+measurement feasibility. We note that there is a similar clas-
+sification of recent work using pretrained diffusion priors to
+solve IPs; see (Wang et al., 2024; 2025; Daras et al., 2024;
+Oliviero-Durmus et al., 2025).
+2.3. Foundation FM priors for IPs
+Table 1. Comparison between foundation FM, domain-specific FM,
+and untrained priors for Gaussian deblurring the on AFHQ-Cat
+(resolution: 256 × 256). DS: domain-specific FM; FD: foundation
+FM; FD-S: strengthened foundation FM; DIP: deep image prior.
+Bold: best, & underline: second best, for each metric/column. The
+foundation model is Stable Diffusion V3 here.
+PSNR ↑ SSIM ↑ LPIPS ↓ CLIPIQA ↑
+DIP 27.5854 0.7179 0.3898 0.2396
+D-Flow (DS) 28.1389 0.7628 0.2783 0.5871
+D-Flow (FD) 25.0120 0.7084 0.5335 0.3607
+D-Flow (FD-S) 25.1453 0.6829 0.5213 0.3228
+FlowDPS (DS) 22.1191 0.5603 0.3850 0.5417
+FlowDPS (FD) 22.1404 0.5930 0.5412 0.2906
+FlowDPS (FD-S) 22.0538 0.5920 0.5408 0.2913
+2.3.1. F OUNDATION FM PRIORS ≪ DOMAIN -SPECIFIC
+OR EVEN UNTRAINED ONES
+(a) Ground Truth
+ (b) Measurement
+ (c) FlowDPS
+ (d) FlowChef
+Figure 2. Illustration of foundation FM prior used for Gaussian
+deblurring on DIV2k (resolution: 512 × 512). The reconstruction
+quality by FlowDPS and FlowChef is no better than that of the
+blurry image, i.e., measurement, itself, if not worse.
+The availability of large-scale training sets has recently fu-
+eled intensive development of foundation generative models
+in several domains, most of them based on FM models
+and variants, e.g., Stable Diffusion V3 (and newer) (Patrick
+3 4 5 6
+Gaussian Sigma
+12
+14
+16
+18
+20
+22
+24
+26
+28PSNR
+3 4 5 6
+Gaussian Sigma
+0.2
+0.3
+0.4
+0.5
+0.6LPIPS
+D-Flow (DS)
+D-Flow (FD)
+FlowDPS (DS)
+FlowDPS (FD)
+DIP
+Figure 3. Comparison between foundation FM, domain-specific
+FM, and untrained priors for Gaussian deblurring with varying
+kernel size (Gaussian sigma) and hence varying difficulty level.
+Notations are the same as in Tab. 1.
+Esser et al, 2024) and FLUX.1 (Black Forest Labs et al,
+2025) for images, OpenAI Sora (OpenAI, 2024) and Google
+Veo (DeepMind, 2025) for videos, and Nvidia Cosmos
+world model (Agarwal, Niket et al, 2025). By contrast,
+domain-specific FM models are not always readily available
+(e.g., due to the lack of training data for scientific applica-
+tions). So, recent IP methods based on pretrained FM priors
+have started to explore foundation priors.
+Although recent foundation FM models are powerful enough
+to generate diverse objects, when used as object priors for
+IPs, they only constrain the object to be physically mean-
+ingful (e.g., the object being a natural image)— foundation
+models are powerful as generative models, but not spe-
+cific as generative priors to impose informative con-
+straints. In comparison, domain-specific priors provide
+much more semantic and structural information about the
+object (e.g., the object being a facial or brain MRI image).
+So, foundation priors alone are considerably weaker
+than domain-specific priors for IPs . In fact, untrained
+priors, such as vanilla deep image prior (DIP) and implicit
+neural representation, may be powerful enough to promote
+physically meaningful solutions for IPs (Alkhouri et al.,
+2025; Wang et al., 2023; Li et al., 2023; Zhuang et al.,
+2023a;b; Sitzmann et al., 2020).
+A quick comparison summarized in Tab. 1 confirms our
+intuition: recent IP methods with foundation FM pri-
+ors perform much worse than domain-specific FM, and
+even untrained priors on Gaussian deblurring. Here, Flow-
+DPS (Kim et al., 2025) and D-Flow (?) are representative
+interleaving and plug-in IP methods, respectively. For both
+of them, foundation priors (FlowDPS(FD)&D-Flow(FD))
+lag behind domain-specific (FlowDPS(DS)&D-Flow(DS))
+priors by considerable margins in at least two of the four
+metrics (see Fig. 2 for visualization of failures). Moreover,
+Eq. (1.1) integrated with the untrained DIP is the second best
+method by three of the four metrics, just after D-Flow(DS).
+Similarly, results on Gaussian deblurring with varying ker-
+nel size presented in Fig. 3 show unequivocally that domain-
+3
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+Submission and Formatting Instructions for ICML 2026
+specific FM and untrained priors are stronger than founda-
+tion FM priors, uniformly across different difficulty levels
+of Gaussian deblurring.
+2.3.2. CURRENT IDEAS TO STRENGTH FOUNDATION FM
+PRIORS DO NOT QUITE WORK
+Although none of the previous work explicitly acknowl-
+edges and discusses the serious performance issue of foun-
+dation FM priors, some have implicitly tried to strengthen
+the priors. As a plug-in method, (Ben-Hamu et al., 2024) as-
+sumes that x and y are close—e.g., valid for typical image
+restoration tasks, and initializes the optimization variable z
+of Eq. (2.3) with
+z0 = √αy0 +
+√
+1 − αz with z ∼ N (0, I), (2.4)
+where y0 is the inversion seed , i.e., y0 = y +R 0
+1 vθ(yt, t)dt—backward solution of the governing ODE,
+to accelerate the convergence of numerical methods
+for solving Eq. (2.3). Moreover, they promote the Gaus-
+sianity of the seed z0 by recognizing that ∥z0∥2
+2 follows
+a χ2 distribution and thus regularizing its negative log-
+likelihood. Alternatively, as a representative interleav-
+ing method, (Kim et al., 2025) also assumes the close-
+ness of x and y, and takes an automatically generated
+text description for y as the text condition for the FM
+prior, as all recent foundation FM models allow text-
+prompted generation. However, our quick empirical
+evaluation suggests that these prior-strengthening tech-
+niques are almost useless : there is little change in per-
+formance moving from FlowDPS(FD)&D-Flow(FD) to
+FlowDPS(FD-S)&D-Flow(FD-S) in Tab. 1.
+3. Method
+The goal of this paper is to close the performance
+gap between foundation FM priors and domain-
+specific FM & untrained ones identified in Sec. 2.3.1,
+by addressing the deficiency of the current prior-
+strengthening ideas summarized in Sec. 2.3.2.
+Table 2. Image regression on 1000
+random images from the DIV2K
+dataset; details in App. A.3.
+Metric D-Flow FMPlug
+PSNR 36.187 37.924
+LPIPS 0.181 0.093
+Between the two ap-
+proaches to solving IPs
+with pretrained FM pri-
+ors (Sec. 2.2), we fol-
+low the plug-in ap-
+proach as formulated in
+Eq. (2.3), due to its su-
+perior performance in
+practice (see, e.g., Tab. 1 and Sec. 4). For this approach, a
+potential concern is whether Gθ is surjective, i.e., whether
+every reasonable x can be represented as Gθ(z) for some
+z. While theoretical results of this nature seem lacking
+and modeling high-dimensional distributions for such the-
+oretical analysis also seem tricky, empirically, the desired
+surjectivity seems to hold approximately based on our image
+regression test reported in Tab. 2.
+To strengthen the foundation FM priors, we consider two
+practical settings: (A) simple-distortion setting, in which
+x and y are close, e.g., for image restoration. This is the set-
+ting considered in previous prior-strengthening works (Ben-
+Hamu et al., 2024; Kim et al., 2025); and (B) few-shot
+setting, in which a small number of image instances close
+to x are provided but x and y might not be close. This is
+particularly relevant for IPs arising from scientific imaging,
+where the image domain is typically very narrow and known
+with a few samples (Huang et al., 2022; Shen et al., 2019;
+Masto et al., 2025). For both settings, taking the image in-
+stance(s) close to x as a guide, we develop a time-dependent
+warm-start strategy and a sharp Gaussian regularization
+that together lead to convincing performance gains. Below,
+we first assume the simple-distortion setting and describe
+the warm-start strategy and the Gaussian regularization in
+Sec. 3.1 and Sec. 3.2, respectively; we then discuss how to
+extend the ideas to deal with the few-shot setting in Sec. 3.4.
+Gaussianity in the source and intermediate distributions
+of FM models and especially the following celebrated
+concentration-of-measure (CoM) result for Gaussian vectors
+are crucial for our method.
+Theorem 3.1 (Concentration of measure in Gaussian ran-
+dom vectors (Vershynin, 2018)). F or ad-dimensional Gaus-
+sian random vector z ∼ N (0, Id), P[|∥z∥2 −
+√
+d| ≥ t] ≤
+2e−ct2
+for a universal constant c > 0.
+This implies that for a standard Gaussian vector z ∈ Rd,
+∥z∥2 lies sharply in the range [(1 − ε)
+√
+d, (1 + ε)
+√
+d] with
+ε ∈ o(1) with overwhelmingly high probability. In other
+words, z lies in an ultra-thin shell around Sd−1(0,
+√
+d) (a
+sphere in Rd centered at 0 and with a radius
+√
+d).
+3.1. An instance-guided & time-dependent warm-start
+strategy
+Why is the initialization strategy in D-Flow problem-
+atic? In the standard FM setting, the source distribution
+z0 ∼ N (0, I), whereas the initialized z0 in Eq. (2.4)
+has a distribution N (√αy0, (1 − α)I). One might not
+worry about this distribution mismatch, as both are sup-
+ported on the entire ambient space in theory. But finite-
+sample training with polynomially many samples in prac-
+tice causes a significant gap: due to CoM of Gaussian
+vectors (Thm. 3.1), virtually all training samples drawn
+from N (0, I) come from an ultra-thin shell S around
+Sd−1(0,
+√
+d),1 so the generation function Gθ is effectively
+1To be precise, for m iid drawn Gaussian vectors z1, . . . ,zm,
+P[∃i ∈ { 1, . . . , m} with |∥zi∥2 −
+√
+d| ≥ t] ≤ 2me−ct2
+=
+2e−ct2+log m by a simple union bound. Taking t = ε
+√
+d, we
+4
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+Submission and Formatting Instructions for ICML 2026
+trained on inputs from the domain S, not the entire ambient
+space—which implies that the behavior of Gθ on S c, the
+complement of S, is largely undetermined. Now, samples
+from N (√αy0, (1 − α)I) concentrate around another ultra-
+thin shell around Sd−1(√αy0,
+p
+(1 − α)d), which has only
+a negligibly small intersection with S and lies mostly in S c.
+So, the initialization in Eq. (2.4) lies in S c with very high
+probability. Given that the behavior of Gθ on S c can be
+wild, this initialization strategy is problematic.
+Our time-dependent warm-up strategy A typical flow
+of FM models takes the form
+zt = αtx + βtz where z ∼ N (0, I), (3.1)
+where αt and βt are known functions of t with the property
+αt↘0, βt↗1 as t → 0, and αt↗1, βt↘0 as t → 1, (3.2)
+where ↗ and ↘ indicate monotonically increasing and de-
+creasing, respectively. When x and y are close, x = y + ε
+for some small (i.e., ∥ε∥ is small compared to ∥x∥ and ∥z∥)
+but unknown ε. So, we can write the flow as
+zt = αt(y + ε) + βtz = αty + βtz + αtε (3.3)
+where z ∼ N (0, I). To eliminate the unknown ε, we can
+approximate the exact flow in Eq. (3.3) with the following
+approximate flow
+zt ≈ αty + βtz where z ∼ N (0, I) (3.4)
+with an approximation error αtε. To control the error, (1) if
+ε is relatively large, a smallαt is desirable; (2) ifε is already
+relatively small, a relatively large αt is acceptable. So,
+although we do not know ε itself and hence its magnitude,
+with appropriate αt we can always make αtε sufficiently
+small. So, we leave αt as a learnable parameter. Since αt
+is a known function of t, we simply need to leave t ∈ [0, 1]
+learnable, leading to our warm-start formulation
+minz,t∈[0,1] ℓ(y, A ◦ Gθ(αty + βtz, t)). (3.5)
+Here we overload the notation of Gθ as Gθ : Rd × [0, 1] →
+Rd—the second input is the current t on the path (the nota-
+tion in Eq. (2.3) assumes t = 0). In other words, due to the
+closeness of x and y, we do not need to start from scratch,
+i.e., t = 0; instead, we plug y into an appropriate, learnable
+time point to create a shortcut, as illustrated in Fig. 1a.
+Our formulation in Eq. (3.5) can easily be generalized to
+latent FM models that are commonly used in practice—we
+just need to replace A ◦ Gθ with A ◦ D ◦ Gθ for the decoder
+D in use. Moreover, it is not only grounded in theory and
+effective in practice (see Sec. 4), but also speeds up learning
+as t > 0 implies shorter flows, although improving speed is
+not our current focus.
+obtain that P[∃i ∈ { 1, . . . , m} with |∥zi∥2 −
+√
+d| ≥ ε
+√
+d] ≤
+2e−cε2d+log m ≤ 2e−cε2d/2 provided that m ≤ ecε2d/2.
+Figure 4. Plot of the function h(z0) (after a change of variable
+u = ∥z0∥2
+2). An ideal regularization function should blow up
+sharply away from the narrow concentration region in orange to
+promote Gaussianity effectively.
+3.2. A sharp Gaussianity regularization
+Why is the Gaussian regularization in D-Flow problem-
+atic? If z0 ∼ N (0, I), ∥z0∥2
+2 ∼ χ2(d) and the neg-
+ative log-likelihood is h(z0) = −(d/2 − 1) log∥z0∥2
+2 +
+∥z0∥2
+2/2 +C for some constant C independent of z0. (Ben-
+Hamu et al., 2024) promotes the Gaussianity of z0 by reg-
+ularizing h(z0). While h(z0) is minimized at any z0 sat-
+isfies ∥z0∥2 =
+√
+d − 2, away from this value the function
+changes painfully slowly; see Fig. 4. For example, the func-
+tion value only changes ≤ 0.031% relative to the minimum
+in the [62000, 70000] range, much larger than the orange-
+highlighted CoM region. This is problematic, as ∥z0∥2
+should concentrate sharply around d and thus only functions
+that blow up quickly away from the ∥z0∥2 =
+√
+d level can
+effectively promote the Gaussianity of z0.
+Our sharp Gaussian regularization via an explicit con-
+straint For Eq. (3.5), we hope to promote the Gaussianity
+of z. To enforce the sharp concentration of z, we introduce
+the shell constraint
+Sd−1
+ε (0,
+√
+d) .= {z : ∥z∥2 ∈ [1 − ε, 1 + ε]
+√
+d}, (3.6)
+with an ε ≪ 1, as implied by Thm. 3.1. So, our final
+formulation for the simple-distortion setting is
+minz,t∈[0,1] ℓ (y, A ◦ Gθ (αty + βtz, t))
+s.t. z ∈ Sd−1
+ϵ (0,
+√
+d)
+(3.7)
+To ensure feasibility, in each iteration step to optimize the
+objective of Eq. (3.7), we simply need to add the closed-
+form projection
+PSd−1
+ϵ (0,
+√
+d)(z)
+=
+
+
+
+(1 + ϵ)
+√
+d · z
+∥z∥2
+if ∥z∥2 ≥ (1 + ϵ)
+√
+d
+(1 − ϵ)
+√
+d · z
+∥z∥2
+if ∥z∥2 ≤ (1 − ϵ)
+√
+d
+z otherwise
+(3.8)
+5
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+Submission and Formatting Instructions for ICML 2026
+where PS(·) denotes the Euclidean projection operator onto
+a set S. Using a spherical constraint ∥z∥2 =
+√
+d or regu-
+larization to promote Gaussianity is not new in the FM and
+diffusion literature; see, e.g., Yang et al. (2024). However,
+enforcing ∥z∥2 =
+√
+d is a bit rigid as the actual length lies
+in a small range. Our shell constraint leaves reasonable
+slackness, while still sharply encoding the Gaussianity. We
+typically set ε = 0.025 in our implementation.
+YW: Notably, while Eq. (3.5) and Eq. (3.7) lack an explicit
+penalty term Ω ◦ G θ(z) in Eq. (2.3), the constraint z ∈
+S (e.g., a shell constraint) functions as the regularization
+itself. This is formalized by the set-indicator function δS(z)
+defined as:
+δS(z) =
+(
+0 z ∈ S
+∞ z /∈ S. (3.9)
+By incorporating δS(z) into the objective, the constrained
+problem is unified into a regularized formulation, where
+the geometric constraint on the latent space provides the
+necessary inductive bias.
+3.3. Latent FMPlug
+FD FM models are trained mainly in latent space, which
+enables efficient generation and flexible conditioning. In
+SD3, Eϵ and Dϕ are the pre-trained encoder and decoder
+that map the data between object and latent space:
+z1 = Eϵ(Dϕ(z1)) = Eϵ(x) (3.10)
+Similarly to the pixel-space FM implementation, we use
+the encoded representation of measurement Eϵ(y) and the
+latent generation pipeline A ◦ D ϕ ◦ G θ. Applying these
+modifications to our objective yields the final latent warm-
+start formulation:
+minz,t∈[0,1] ℓ (y, A ◦ Dϕ (Gθ (αtEϵ(y) + βtz, t)))
+s.t. z ∈ Sd−1
+ϵ (0,
+√
+d)
+(3.11)
+3.4. Few-shot setting for scientific IPs
+Why foundation FM priors for scientific imaging?
+Many scientific domains rely on imaging for scientific dis-
+covery, e.g., material sciences and astronomy, and they often
+need to solve highly complex nonlinear IPs to interpret their
+measured data. Although it is tempting to train domain-
+specific FM models to help solve these IPs, there are practi-
+cal barriers that are hard to overcome in the short or inter-
+mediate term: (1) prohibitive cost of data collection. This
+could be due to difficulty in obtaining clean groundtruth data
+(e.g., black holes, nano-materials), or high price or long du-
+ration to obtain sufficient amount of data for training FM
+Figure 5. In scientific IPs, objects in the same domain are typically
+structurally similar and concentrated in a small region of the gen-
+eral image space.
+Figure 6. Three scientific IPs we focus on: LIS (linear inverse
+scatter- ing), MRI (compressed sensing MRI), and BKH (black
+hole imaging), and reconstruction results by three methods: our
+FMPlug, D-Flow, DIP (GT: groundtruth). More details in Sec. 4.2.
+models (e.g., numerous microscopy modalities (Chua et al.,
+2022)); (2) prohibitive cost of model development and
+training. Even if the data are sufficient, training FM models
+might be a tall order for computation. For example, scien-
+tific applications often entail ultra high-resolution images
+(e.g., MRI) or high dynamic range (e.g., remote sensing
+(Chen et al., 2025)), which invariably demand models with
+high complexity, compared to the natural-image domain.
+The elevated data and model complexities inevitably lead
+to high computational costs, intimidating domain scientists
+(Bommasani et al., 2022). However, scientific discovery
+should not be stopped because of the current non-existence
+of such domain-specific models; the similarity of many sci-
+entific images to the natural images—perhaps after proper
+transformations, suggests using available foundation FM
+models trained on web-scale images to solve IPs in scientific
+imaging, as we demonstrate below.
+Figure 7. Illustration of
+few-shot instance prior.
+Our few-shot instance-
+guided strategy We assume
+a small set of instances
+{xk}k=1,...,K, some of which
+6
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+Submission and Formatting Instructions for ICML 2026
+are close to the true x—
+realistic for many scientific
+domains with limited visual
+variability, as illustrated
+in Fig. 5. To adapt the
+time-dependent warm-start strategy in Sec. 3.1 to this
+setting, we consider linear combinations of xk’s to take
+the place of y for warm-start, see Fig. 7, i.e., starting with
+αt(PK
+k=1 wkxk) + βtz, resulting in
+minz,t,w ℓ(y, A ◦ Gθ(αt
+PK
+k=1 wkxk + βtz, t))
+s.t. z ∈ Sd−1
+ε (0,
+√
+d), t ∈ [0, 1], w ∈ ∆K
+(3.12)
+to replace Eq. (3.5). The simplex constraint w ∈ ∆K .=
+w ∈ RK : w ≥ 0, w⊺1 = 1
+	
+serves two purposes: (1) It
+fixes the scale of w, as the multiplicative relationship of
+αt and w causes a scale ambiguity—e.g., we can scale
+w by a factor ξ and scale αt by 1/ξ to obtain the same
+αt(PK
+k=1 wkxk), and vise versa; YW: (2) By optimization,
+it inherently encourages the model to concentrate weight on
+a subset of relevant data, effectively identifying and priori-
+tizing instances that are structurally most similar to the un-
+known target x. In actual implementation, we eliminate this
+constraint by a simple reparameterization w = softmax(v)
+and treat v as an optimization variable. Since the proposed
+modification in warm-start does not affectz, our sharp Gaus-
+sian regularization in Sec. 3.2 can be directly integrated.
+4. Experiment
+For brevity, we term our methodFMPlug and benchmark its
+performance on both simple-distortion and few-shot IPs, in
+Sec. 4.1 and Sec. 4.2, respectively. In Sec. 4.3, we perform
+an ablation study to dissect the contributions of the two
+algorithmic components.
+4.1. Simple-distortion IPs
+Datasets, tasks, and evaluation metrics We use 3 di-
+verse datasets: DIV2K (Agustsson & Timofte, 2017), Re-
+alSR (Cai et al., 2019) and AFHQ (Choi et al., 2020), and
+take 100 random images out of each dataset. We set the im-
+age resolution to512×512 by resizing and cropping the orig-
+inal. We consider four linear IPs: i) 4× super-resolution
+from 128 × 128 to 512 × 512; ii) 70% random-mask in-
+painting; iii) Gaussian deblurring with a kernel size of 61
+and standard deviation of 3.0; iv) Motion deblurring with
+a kernel size of 61 and intensity of 0.5. We add Gaussian
+noise σ = 0.03 to all measurements. For evaluation metrics,
+we use four reference-based metrics, including PSNR for
+pixel-level difference, SSIM and DISTS for structural and
+textural similarity, LPIPS for perceptual difference, and two
+no-reference metrics CLIPIQA & MUSIQ. The reference-
+based metrics are our primary metrics, and the no-reference
+metrics are secondary and just serve as tie-breakers. Results
+measured by DISTS and MUSIQ are included in App. A.4;
+Competing methods We compare our FMPlug ( -W:
+warm-start only, Number of Function Evaluations (NFE)
+= 3) with deep image prior (DIP) (Ulyanov et al., 2020)
+(an untrained image prior), D-Flow ( NFE = 6 ) (Ben-
+Hamu et al., 2024) (a SOTA plug-in method), FlowDPS
+(NFE = 28 ) (Kim et al., 2025) (a SOTA interleaving
+method) and FlowChef ( NFE = 28 ) (Patel et al., 2024)
+(another SOTA interleaving method). For a fair comparison,
+we use Stable Diffusion V3 (Patrick Esser et al, 2024) as
+the backbone for all methods that require foundation priors.
+For methods that integrate text prompts, including FlowDPS
+and FlowChef, we compare two variants with the prompts
+on and off, respectively; we use postfix -P to indicate the
+prompt-enabled variants. We use the pretrained degradation-
+aware prompt extractor of (Wu et al., 2024b) to generate
+label-style text prompts. We set the CFG scale to 2.0 when
+text prompts are on. Details of the YW: implementation and
+hyperparameter can be found in App. A.1.1 and App. A.2
+respectively.
+Tab. 3 summarizes a part of the quantitative results; details
+and visualizations can be found in App. A.4. We can ob-
+serve that: (1) Our FMPlug is the overall winner by all
+metrics but CLIPIQA, the no-reference metrics, beating the
+untrained DIP–a strong baseline. FlowChef and FlowDPS,
+with text prompts, lag behind even untrained DIP by large
+margins and generate visually blurry, oversmooth, and often
+hallucinated images as shown in Fig. 12, highlighting the
+general struggle of interleaving methods to ensure simulta-
+neous measurement and manifold feasibility;(2) For plug-in
+methods, our FMPlug improves upon D-Flow—our main
+competitor, by considerable margins based on all metrics
+but CLIPIQA, showing the solid advantage of our warm-
+start strategy and Gaussian regularization over theirs; and
+(3) FMPlug further improves PSNR and SSIM slightly over
+FMPlug-W showing stronger visual quality. This confirms
+the benefits due to the sharp Gaussianity regularization. YW:
+For the extensive discussion of the no reference metric can
+be found in App. A.5.
+4.2. Few-shot scientific IPs
+Inversebench (Zheng et al., 2025) is specifically designed
+to expose the ”scientific gap” that standard computer vision
+benchmarks fail to capture. It includes five distinct scien-
+tific inverse problems where each problem presents unique
+structural challenge.
+We consider three scientific IPs from InverseBench 2 and
+2We exclude two IPs from InverseBench: full waveform in-
+7
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+436
+437
+438
+439
+Submission and Formatting Instructions for ICML 2026
+Table 3. Results on simple-distortion IPs. (Bold: best, under: second best, CLIP: CLIPIQA)
+AFHQ (512×512) DIV2K (512×512) RealSR (512×512)
+task method PSNR↑SSIM↑LPIPS↓CLIP↑ PSNR↑SSIM↑LPIPS↓CLIP↑ PSNR↑SSIM↑LPIPS↓CLIP↑
+4×Super Resolution
+DIP 29.85 0.78 0.37 0.33 25.75 0.73 0.42 0.40 26.81 0.72 0.44 0.30
+FlowChef-P29.23 0.79 0.38 0.64 25.08 0.71 0.43 0.60 25.89 0.71 0.43 0.44
+FlowDPS-P28.75 0.76 0.37 0.37 24.92 0.69 0.42 0.51 26.11 0.71 0.43 0.34
+D-Flow 26.37 0.70 0.54 0.31 23.42 0.64 0.52 0.37 23.60 0.62 0.53 0.28
+FMPlug-W30.13 0.81 0.34 0.18 25.77 0.74 0.38 0.24 26.58 0.73 0.39 0.16
+FMPlug 30.31 0.81 0.33 0.20 25.88 0.74 0.38 0.27 26.66 0.74 0.38 0.17
+Random Inpainting70%DIP 33.32 0.90 0.21 0.47 28.49 0.86 0.27 0.59 30.88 0.89 0.25 0.47
+FlowChef-P29.27 0.77 0.41 0.57 24.67 0.67 0.46 0.50 25.81 0.69 0.45 0.35
+FlowDPS-P27.63 0.73 0.41 0.43 24.01 0.65 0.47 0.54 25.68 0.69 0.47 0.36
+D-Flow 28.43 0.76 0.41 0.65 24.71 0.73 0.41 0.67 25.27 0.69 0.42 0.59
+FMPlug-W32.75 0.88 0.37 0.63 28.82 0.85 0.33 0.68 31.30 0.88 0.28 0.56
+FMPlug 32.81 0.87 0.34 0.66 28.95 0.84 0.32 0.69 31.79 0.89 0.26 0.56
+Gaussian Deblur
+DIP 29.39 0.77 0.39 0.30 25.23 0.70 0.43 0.38 26.17 0.70 0.46 0.28
+FlowChef-P23.84 0.63 0.54 0.28 20.41 0.49 0.62 0.23 21.42 0.51 0.63 0.19
+FlowDPS-P24.15 0.60 0.49 0.23 20.23 0.46 0.58 0.32 21.21 0.47 0.59 0.22
+D-Flow 25.90 0.66 0.54 0.34 23.64 0.64 0.52 0.37 23.65 0.60 0.54 0.30
+FMPlug-W30.38 0.79 0.40 0.22 26.05 0.72 0.43 0.29 27.05 0.72 0.44 0.21
+FMPlug 30.41 0.79 0.39 0.21 26.26 0.73 0.41 0.28 27.22 0.73 0.43 0.19
+Motion Deblur
+DIP 28.69 0.75 0.38 0.26 24.75 0.68 0.45 0.35 26.17 0.70 0.46 0.28
+FlowChef-P24.77 0.66 0.50 0.37 21.27 0.54 0.57 0.34 22.50 0.56 0.56 0.26
+FlowDPS-P24.81 0.64 0.46 0.28 21.07 0.51 0.54 0.39 22.50 0.55 0.55 0.27
+D-Flow 27.81 0.73 0.48 0.35 25.21 0.70 0.47 0.42 25.86 0.69 0.47 0.31
+FMPlug-W30.10 0.79 0.39 0.26 26.83 0.74 0.40 0.36 28.01 0.76 0.40 0.28
+FMPlug 30.43 0.81 0.37 0.28 27.38 0.78 0.36 0.42 28.63 0.79 0.37 0.30
+take their data as necessary: (1) linear inverse scattering
+(LIS), an IP in optical microscopy, where the objective is
+to recover the unknown permittivity contrast z ∈ Rn from
+measurements of the scattered light field ysc ∈ Cm. We
+use 100 samples for evaluation and 10 samples as guidance;
+(2) Compressed sensing MRI , a technique to accelerate
+MRI scanning through subsampling. We use 94 samples
+for evaluation and 6 samples as guidance; (3) Black hole
+imaging (BKH), a non-linear task to reconstruct black holes
+from measurements by Very Long Baseline Interferometry
+with non-additive noise. We use 100 samples for evaluation
+and 5 samples as guidance. More details on the forward
+models can be found in App. A.8 and (Zheng et al., 2025).
+In terms of methods, we focus on our FMPlug, D-Flow,
+and DIP due to their good performance from Sec. 4.1. For
+D-Flow, we choose the best result between random initial-
+ization and warm-start with the least-loss few-shot instance
+for a fair comparison. We take Red-Diff, one of the SOTA
+methods with domain-specific priors (Zheng et al., 2025),
+as a reference—performance quoted from their paper.
+From Tab. 4, it is evident that our proposed few-shot FM-
+Plug shows comparable or better performance over DIP, and
+beat D-Flow by a large margin in all the tasks. Qualitatively,
+from Fig. 6, our method faithfully recovers the main object
+structures, while D-Flow show severe artifacts. Moreover,
+version due to optimization instability caused by the forward
+operator—faced by their original paper also, and Navier-Stokes
+equation as it requires gradient-free optimization.
+Table 4. (Scientific IPs) Performance on LIS, MRI and BKH.
+(Bold: best among non-DS priors; Background: with DS model)
+LIS MRI BKH
+PSNR↑SSIM↑PSNR↑SSIM↑Data misfit↓PSNR↑ ˜χ2logca↓ ˜χ2cp↓
+DIP 33.45 0.90 23.20 0.54 32.58 17.63 8.90 34.67
+D-Flow 19.67 0.29 16.44 0.27 33.65 17.19 3.69 52.28
+FMPlug 34.65 0.91 23.600.52 33.18 22.91 1.51 1.52
+Red-diff36.550.98 28.710.62 31.59 23.77 2.05 1.85
+encouragingly, our FMPlug’s performance is approaching
+that of Red-Diff which relies on domain-specific FM priors
+on both LIS and BKH. For MRI, we suspect that the consid-
+erable gap is due to a slight violation of our assumption by
+the few-shot guidance: as shown in Fig. 8, these instances
+are spatially located around a single anatomical position,
+whereas the evaluation set has a large spatial variability
+so many of the evaluation samples possibly do not have
+any close guidance—violating our assumption about the
+few-shot setting. YW: Finally, we compute the correlation
+between the learned weights and the ground-truth instance-
+to-target ℓ2 distance across MRI data. We observe a strong
+negative correlation, achieving a Spearman coefficient of
+−0.71 and a Pearson coefficient of −0.79. This confirms
+our intuition: the optimization identifies and assigns larger
+weights to instances that are structurally closer to the un-
+known target. Overall, this suggests that with reasonable
+few-shot guidance, our FMPlug can be a strong candidate
+method for solving data-sparse scientific IPs.
+8
