@@ -203,10 +203,7 @@
           <h2>From prior mismatch to time-dependent warm-start</h2>
           <p>
             The motivation of FMPlug is that foundation flow-matching models are powerful priors,
-            but their useful behavior is concentrated around the Gaussian source structure seen
-            during training. A naive warm start can shift the seed away from this high-probability
-            shell, while a pure cold start ignores the information already present in the
-            measurement. FMPlug resolves this tension by injecting the measurement at a learnable
+            but their general generation capability undermine their reconstruction ability of a specific image. FMPlug resolves this tension by injecting the measurement at a learnable
             time on the flow path and constraining the latent seed to remain Gaussian-like.
           </p>
         </div>
