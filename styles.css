@@ -5,6 +5,8 @@
   --soft: #f6f7f8;
   --line: #d8dde2;
   --accent: #24476b;
+  --good: #18734a;
+  --bad: #aa2f2b;
 }
 
 * {
@@ -235,6 +237,70 @@ h4 {
   border: 1px solid var(--line);
 }
 
+.comparison-table {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+}
+
+.comparison-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  border-top: 1px solid var(--line);
+}
+
+.comparison-row:first-child {
+  border-top: 0;
+}
+
+.comparison-row > div {
+  padding: 20px;
+}
+
+.comparison-row > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.comparison-head {
+  color: var(--paper);
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.comparison-head > div {
+  padding: 14px 20px;
+}
+
+.comparison-row p {
+  color: var(--muted);
+}
+
+.mark-cell {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.mark-cell > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mark-cell.check > span {
+  color: var(--good);
+}
+
+.mark-cell.cross > span {
+  color: var(--bad);
+}
+
 .issue-table {
   border: 1px solid var(--line);
 }
@@ -272,6 +338,75 @@ h4 {
   grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
   gap: 28px;
   align-items: start;
+}
+
+.fm-motivation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.9fr);
+  gap: 24px;
+  align-items: stretch;
+  margin-bottom: 28px;
+}
+
+.fm-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.fm-prior-table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.fm-prior-table caption {
+  caption-side: bottom;
+  padding: 14px 18px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.fm-prior-table th,
+.fm-prior-table td {
+  padding: 8px 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fm-prior-table th:first-child,
+.fm-prior-table td:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.fm-prior-table thead th {
+  border-bottom: 1px solid var(--ink);
+  font-size: 0.72rem;
+}
+
+.fm-prior-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.fm-prior-table .foundation-row {
+  background: var(--soft);
+}
+
+.fm-motivation-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.fm-motivation-copy p {
+  color: var(--muted);
 }
 
 .objective-card {
@@ -456,7 +591,9 @@ h4 {
   }
 
   .method-columns,
+  .comparison-row,
   .issue-row,
+  .fm-motivation-grid,
   .warmstart-layout,
   .comparison-examples,
   .science-figures {
@@ -464,6 +601,11 @@ h4 {
   }
 
   .issue-row > div + div {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .comparison-row > div + div {
     border-left: 0;
     border-top: 1px solid var(--line);
   }

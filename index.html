@@ -25,8 +25,8 @@
         <a class="brand" href="#top">XM-Plug</a>
         <div class="nav-links">
           <a href="#equations">Equations</a>
-          <a href="#figure">Figure</a>
-          <a href="#issues">Issues</a>
+          <a href="#comparison">Comparison</a>
+          <a href="#dmplug">DMPlug</a>
           <a href="#warmstart">Warm-start</a>
           <a href="#pictures">Visualizations</a>
           <a href="#fmplug">FMPlug</a>
@@ -41,21 +41,23 @@
         <h1>Unifying plug-in methods for inverse problem solving</h1>
         <p class="lead">
           This project organizes our group's plug-in inverse problem solvers under one shared
-          language. The central idea is to separate the measurement model from the pretrained
-          generative prior, then solve the inverse problem by optimizing through the prior rather
-          than interleaving ad hoc correction steps with sampling.
+          language: solve inverse problems by optimizing through a pretrained generative prior,
+          while keeping the measurement model explicit.
         </p>
       </section>
 
       <section id="equations" class="section">
         <div class="section-title">
           <!-- <p class="label">Part 1</p> -->
-          <h2>Two master equations</h2>
+          <h2>Master equation</h2>
         </div>
 
         <div class="equation-list">
           <article class="equation-block">
-            <h3>i. Typical MAP formulation</h3>
+            <h3>Typical MAP formulation</h3>
+            <p>
+            Traditional ideas for solving IPs rely on optimization, often motivated by the Maximum A Posteriori (MAP) principle: 
+            </p>
             <div class="math-block">
               \[
                 \widehat{x}
@@ -72,34 +74,20 @@
               is a handcrafted or learned prior regularizer.
             </p>
           </article>
-
-          <article class="equation-block">
-            <h3>ii. Plug-in formulation</h3>
-            <div class="math-block">
-              \[
-                \widehat{z}
-                =
-                \arg\min_z
-                \ell\!\left(y, \mathcal{A}(G_\theta(z))\right)
-                +
-                \lambda R(z),
-                \qquad
-                \widehat{x}=G_\theta(\widehat{z})
-              \]
-            </div>
-            <p>
-              The pretrained model \(G_\theta\) is kept fixed and plugged into the inverse
-              problem as the prior. Optimization happens over the latent variable \(z\), while the
-              measurement loss remains explicit.
-            </p>
-          </article>
         </div>
       </section>
 
-      <section id="figure" class="section">
+      <section id="comparison" class="section">
         <div class="section-title">
           <!-- <p class="label">Part 2</p> -->
           <h2>Interleaving vs. plug-in methods</h2>
+          <p>
+            The key distinction is whether measurement correction is interleaved with generation,
+            or whether measurement consistency is optimized through a fixed pretrained prior.
+            This comparison motivates the first driving question: how can diffusion priors solve
+            inverse problems while keeping the reconstruction natural, measurement-consistent, and
+            robust to noise?
+          </p>
         </div>
 
         <figure class="paper-figure">
@@ -114,141 +102,98 @@
           </figcaption>
         </figure>
 
-        <div class="method-columns">
-          <article>
-            <h3>Interleaving methods</h3>
-            <p>
-              Alternate between generative sampling steps and measurement-correction steps.
-              The prior and measurement model interact through a schedule of local corrections.
-            </p>
-          </article>
-          <article>
-            <h3>Plug-in methods</h3>
-            <p>
-              Treat the pretrained generative process as a differentiable prior function and
-              optimize a measurement-aware objective through that function.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section id="issues" class="section">
-        <div class="section-title">
-          <!-- <p class="label">Part 3</p> -->
-          <h2>Why interleaving can be fragile</h2>
-        </div>
-
-        <div class="issue-table" role="table" aria-label="Interleaving issues and plug-in responses">
-          <div class="issue-row issue-head" role="row">
-            <div role="columnheader">Issue in interleaving methods</div>
-            <div role="columnheader">How plug-in methods address it</div>
+        <div class="comparison-table" role="table" aria-label="Interleaving and plug-in method comparison">
+          <div class="comparison-row comparison-head" role="row">
+            <div role="columnheader">Desired property</div>
+            <div role="columnheader">Interleaving</div>
+            <div role="columnheader">Plug-in</div>
           </div>
 
-          <div class="issue-row" role="row">
+          <div class="comparison-row" role="row">
             <div role="cell">
               <h3>Manifold feasibility</h3>
-              <p>
-                Measurement corrections can push samples away from the learned signal manifold,
-                so the reconstruction may satisfy some measurements while becoming less realistic
-                or less physically plausible.
-              </p>
+              <p>Keep the reconstruction on the natural-image or scientific-object manifold.</p>
             </div>
-            <div role="cell">
-              <p>
-                Plug-in methods parameterize the solution through the pretrained model, keeping
-                reconstruction tied to the learned prior throughout optimization.
-              </p>
+            <div class="mark-cell cross" role="cell">
+              <span aria-hidden="true">&#10005;</span>
+              <p>Correction steps can push samples off the learned prior.</p>
+            </div>
+            <div class="mark-cell check" role="cell">
+              <span aria-hidden="true">&#10003;</span>
+              <p>The output is parameterized by the pretrained generator.</p>
             </div>
           </div>
 
-          <div class="issue-row" role="row">
+          <div class="comparison-row" role="row">
             <div role="cell">
               <h3>Measurement feasibility</h3>
-              <p>
-                Reverse generative steps may undo progress made by correction steps, causing
-                oscillation between plausible samples and measurement-consistent samples.
-              </p>
+              <p>Match the observation under the forward operator \(y \approx \mathcal{A}(x)\).</p>
             </div>
-            <div role="cell">
-              <p>
-                The measurement loss is placed directly in the outer objective, so every update
-                can be evaluated against the forward model.
-              </p>
+            <div class="mark-cell cross" role="cell">
+              <span aria-hidden="true">&#10005;</span>
+              <p>Generation steps may undo local measurement corrections.</p>
+            </div>
+            <div class="mark-cell check" role="cell">
+              <span aria-hidden="true">&#10003;</span>
+              <p>The measurement loss is optimized directly through the prior.</p>
             </div>
           </div>
 
-          <div class="issue-row" role="row">
+          <div class="comparison-row" role="row">
             <div role="cell">
-              <h3>Noise instability</h3>
-              <p>
-                Correction schedules can be sensitive to unknown or mismatched noise levels,
-                especially when the measurement process differs from the assumptions used to
-                design the sampler.
-              </p>
+              <h3>Noise robustness</h3>
+              <p>Stay stable when the observation is noisy or the degradation is imperfectly known.</p>
             </div>
-            <div role="cell">
-              <p>
-                Plug-in methods can incorporate noise handling, regularization, and stopping
-                criteria in the optimization objective instead of relying on fixed sampling-time
-                heuristics.
-              </p>
+            <div class="mark-cell cross" role="cell">
+              <span aria-hidden="true">&#10005;</span>
+              <p>Performance depends heavily on correction schedules and noise assumptions.</p>
+            </div>
+            <div class="mark-cell check" role="cell">
+              <span aria-hidden="true">&#10003;</span>
+              <p>Regularization and stopping rules can be handled in the objective.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="warmstart" class="section">
+      <section id="dmplug" class="section">
         <div class="section-title">
-          <p class="label">FMPlug strategy</p>
-          <h2>From prior mismatch to time-dependent warm-start</h2>
+          <!-- <p class="label">Part 3</p> -->
+          <p class="label">Question 1 &middot; DMPlug</p>
+          <h2>How to improve the measurement and manifold feasibility with robustness to noise?</h2>
           <p>
-            The motivation of FMPlug is that foundation flow-matching models are powerful priors,
-            but their general generation capability undermine their reconstruction ability of a specific image. FMPlug resolves this tension by injecting the measurement at a learnable
-            time on the flow path and constraining the latent seed to remain Gaussian-like.
-          </p>
-        </div>
+            <b>DMPlug</b> answers this question by considering the diffusion generation process as a function. Instead of alternating
+            reverse diffusion with correction steps, it optimizes a measurement-aware optimization objective
+            through the pretrained diffusion prior:
 
-        <div class="warmstart-layout">
-          <figure class="paper-figure compact">
-            <img src="visualization/warmstart.png" alt="FMPlug warm-start strategy">
-          </figure>
-
-          <article class="objective-card">
-            <h3>Simple-distortion objective</h3>
-            <div class="math-block">
-              \[
-                \min_{z,\,t\in[0,1]}
-                \ell\!\left(
-                  y,\,
-                  \mathcal{A}\circ G_\theta(\alpha_t y+\beta_t z, t)
-                \right)
-                \quad
-                \mathrm{s.t.}\quad
-                z\in S^{d-1}_{\epsilon}(0,\sqrt{d})
-              \]
-            </div>
-
-            <p>
-              For image restoration, \(y\) is close enough to the unknown object to serve as an
-              instance guide. The learnable time \(t\) decides how much of that guide enters the
-              trajectory, while the shell constraint preserves the Gaussian concentration structure
-              expected by the foundation FM model.
-            </p>
+            <article class="equation-block">
+              <h3>DMPlug formulation</h3>
+              <div class="math-block">
+                \[
+                  \widehat{z}
+                  =
+                  \arg\min_z
+                  \ell\!\left(y, \mathcal{A}(G_\theta(z))\right)
+                  +
+                  \lambda R(z),
+                  \qquad
+                  \widehat{x}=G_\theta(\widehat{z})
+                \]
+              </div>
+              <p>
+                The pretrained model \(G_\theta\) is kept fixed and plugged into the inverse
+                problem as the prior. Optimization happens over the latent variable \(z\), while the
+                measurement loss remains explicit.
+              </p>
           </article>
-        </div>
-      </section>
-
-      <section id="pictures" class="section">
-        <div class="section-title">
-          <p class="label">Image restoration visualizations</p>
-          <h2>Measurement and reconstruction comparisons</h2>
-          <p>
-            Each method shows its available image-restoration tasks in one row. Drag each slider
-            to compare the degraded measurement with the reconstruction.
+            
+            The diffusion model keeps the solution close
+            to the learned natural-object manifold, while the explicit loss enforces the forward
+            measurement model.
           </p>
         </div>
 
-        <div class="visualization-groups">
+        <div id="pictures" class="visualization-groups">
           <section class="method-group" aria-labelledby="dmplug-examples">
             <h3 id="dmplug-examples">DMPlug</h3>
             <div class="comparison-examples">
@@ -297,7 +242,131 @@
               </article>
             </div>
           </section>
+        </div>
+      </section>
 
+      <section id="warmstart" class="section">
+        <div class="section-title">
+          <p class="label">Question 2 &middot; FMPlug</p>
+          <h2>Why foundation FM priors need instance-specific guidance</h2>
+          <p>
+            We observe a surprising gap: foundation-prior methods such as
+            FlowDPS and FlowChef can underperform even the untrained DIP baseline on image
+            restoration. 
+          </p>
+        </div>
+
+        <div class="fm-motivation-grid">
+          <div class="fm-table-wrap">
+            <table class="fm-prior-table">
+              <caption>
+                Comparison between foundation FM, domain-specific FM, and untrained priors for Gaussian deblurring on AFHQ-Cat. DS: domain-specific FM; FD: foundation FM; FD-S: strengthened foundation FM; DIP: deep image prior.
+              </caption>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>PSNR&uparrow;</th>
+                  <th>SSIM&uparrow;</th>
+                  <th>LPIPS&downarrow;</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>DIP</strong></td>
+                  <td><u>27.5854</u></td>
+                  <td><u>0.7179</u></td>
+                  <td>0.3898</td>
+                </tr>
+                <tr>
+                  <td><strong>D-Flow (DS)</strong></td>
+                  <td><strong>28.1389</strong></td>
+                  <td><strong>0.7628</strong></td>
+                  <td><strong>0.2783</strong></td>
+                </tr>
+                <tr class="foundation-row">
+                  <td><strong>D-Flow (FD)</strong></td>
+                  <td>25.0120</td>
+                  <td>0.7084</td>
+                  <td>0.5335</td>
+                </tr>
+                <tr class="foundation-row">
+                  <td><strong>D-Flow (FD-S)</strong></td>
+                  <td>25.1453</td>
+                  <td>0.6829</td>
+                  <td>0.5213</td>
+                </tr>
+                <tr>
+                  <td><strong>FlowDPS (DS)</strong></td>
+                  <td>22.1191</td>
+                  <td>0.5603</td>
+                  <td><u>0.3850</u></td>
+                </tr>
+                <tr class="foundation-row">
+                  <td><strong>FlowDPS (FD)</strong></td>
+                  <td>22.1404</td>
+                  <td>0.5930</td>
+                  <td>0.5412</td>
+                </tr>
+                <tr class="foundation-row">
+                  <td><strong>FlowDPS (FD-S)</strong></td>
+                  <td>22.0538</td>
+                  <td>0.5920</td>
+                  <td>0.5408</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <article class="fm-motivation-copy">
+            <h3>From broad generation to specific reconstruction</h3>
+            <p>
+              The issue is not that foundation flow-matching models are weak generative models.
+              Rather, they are broad generators, so by themselves they may not impose sufficiently
+              specific constraints for reconstructing one measured object.
+            </p>
+            <p>
+              This motivates the second driving question: <strong>how can inverse problems make
+              better use of foundation diffusion priors?</strong>
+            </p>
+            <p>
+              We propose an instance-guided warm-start strategy to address this issue:
+              <strong>FMPlug</strong>.
+            </p>
+          </article>
+        </div>
+        
+
+        <div class="warmstart-layout">
+          <figure class="paper-figure compact">
+            <img src="visualization/warmstart.png" alt="FMPlug warm-start strategy">
+          </figure>
+
+          <article class="objective-card">
+            <h3>Simple-distortion objective</h3>
+            <div class="math-block">
+              \[
+                \min_{z,\,t\in[0,1]}
+                \ell\!\left(
+                  y,\,
+                  \mathcal{A}\circ G_\theta(\alpha_t y+\beta_t z, t)
+                \right)
+                \quad
+                \mathrm{s.t.}\quad
+                z\in S^{d-1}_{\epsilon}(0,\sqrt{d})
+              \]
+            </div>
+
+            <p>
+              FMPlug uses the relation between the unknown object \(x\) and the measurement
+              \(y\): when they are close, we do not need to generate from scratch at \(t=0\).
+              Instead, we plug \(y\) into an appropriate learnable time point on the flow path,
+              creating a shortcut for reconstruction. The shell constraint keeps the latent seed
+              Gaussian-like, preserving the source structure expected by the foundation FM model.
+            </p>
+          </article>
+        </div>
+
+        <div class="visualization-groups">
           <section class="method-group" aria-labelledby="fmplug-image-examples">
             <h3 id="fmplug-image-examples">FMPlug</h3>
             <div class="comparison-examples">
